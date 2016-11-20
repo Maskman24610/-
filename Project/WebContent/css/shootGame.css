@@ -1,0 +1,54 @@
+body{
+	background-color:#728478;
+}
+div{
+	margin:100px  400px auto;
+	position:absolute;
+	background-color:transparent;                    /*設定背景顏色透明*/
+	border:none;
+}
+
+canvas{
+	border: 3px solid black;
+}
+
+#scoreandtimeCanvasWarp{
+	z-index:2;
+}
+#gameCanvasWarp{
+	z-index:1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

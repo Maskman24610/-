@@ -1,0 +1,304 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>HTML5 Canvas</title>
+</head>
+<body>
+<div style="border:none;margin:0px;padding:0px;position:relative">
+   <canvas id="_2DCanvas" width="300" height="600"
+          style="border:1px dashed #c3c3c3;">
+        流覽器如果不支援canvas元素，就顯示這行文字
+   </canvas>
+</div>
+<script>
+/**
+ * 該方法用於限定取值範圍。
+   當Number物件小於min時則傳回min，
+   當Number物件大於max時則傳回max，
+   當在min和max之間時則傳回Number物件本身。
+ * @param  number   min        可取的最小值
+ * @param  number   max        可取的最大值
+ * @return number
+ */
+Number.prototype.clamp = function(min, max) {
+   if (min > max) throw new Error("參數錯誤！");
+   return Math.min(Math.max(this, min), max);
+};
+// 定義一些總體變數以在全域範圍內使用
+var cxt,                   // Context 2D物件
+     keydown = {},        // 用來放置鍵盤鍵是否被按下
+     FPS = 30,             // 畫布重新整理率，值越大重新整理率越高
+     playerBullets = [], // 定義一個群集來存儲子彈
+     enemies = [];        // 定義一個群集來存儲敵人
+
+// 遊戲玩家
+var player = {color: "#00F",       // 玩家初始狀態下的顏色
+                 x: 50,                 // 玩家初始的位置
+                 y: 570,                // 玩家初始的位置
+                 width: 20,            // 玩家的寬度
+                 height: 30,           // 玩家的高度
+                 draw: function() {   // 繪製玩家，這裏簡單的繪製為矩形
+                    cxt.fillStyle = this.color;
+                    cxt.fillRect(this.x, this.y,
+                                    this.width, this.height);
+                 }
+};
+
+// 用於建立敵人的工廠方法
+function Enemy() {
+   enemy = {};                       // 建立一個新的物件表示敵人
+   // 表示敵人是否處於活動狀態，據此決定是否還要重繪該圖像
+   enemy.active = true;
+   // 給一個表示敵人成長量的屬性
+   enemy.age = Math.floor(Math.random() * 128);
+   enemy.color = "#F00";           // 敵人的顏色
+   // 敵人的初始位置
+   enemy.x = cxt.canvas.width/4 + Math.random()*cxt.canvas.width/2;
+   enemy.y = 0;
+
+   enemy.xVelocity = 0;            // 敵人x方向上的速度
+   enemy.yVelocity = 2;            // 敵人y方向上的速度
+
+   enemy.width = 32;               // 敵人的寬度
+   enemy.height = 32;              // 敵人的高度
+   // 檢查敵人是否還在畫布範圍內
+   enemy.inCanvas = function() {
+      return enemy.x >= 0 && enemy.x <= cxt.canvas.width &&
+         enemy.y >= 0 && enemy.y <= cxt.canvas.height;
+   };
+   // 繪製敵人
+   enemy.draw = function() {
+      cxt.fillStyle = this.color;
+      cxt.fillRect(this.x, this.y, this.width, this.height);
+   };
+   // 更新敵人的屬性
+   enemy.update = function() {
+      enemy.x += enemy.xVelocity;  // 更新敵人位置
+      enemy.y += enemy.yVelocity;  // 更新敵人位置
+      // 改變x方向上的速度，從而給敵人的移動以更大的不確定性
+      enemy.xVelocity = 3 * Math.sin(enemy.age * Math.PI / 64);
+      enemy.age++;                    // 更新敵人的年齡
+      // 檢查敵人是否處於活動狀態
+      enemy.active = enemy.active && enemy.inCanvas();
+   };
+   // 敵人被消滅後爆炸，也就不再處於活動狀態了
+   enemy.explode = function() {
+      this.active = false;
+   };
+
+   return enemy;                      // 傳回建立的敵人
+};
+
+// 用於建立子彈的工廠方法
+function Bullet(bullet) {
+   // 表示子彈是否處於活動狀態，據此決定是否還要重繪該圖像
+   bullet.active = true; 
+   bullet.xVelocity = 0;                // 子彈x方向上的速度
+   bullet.yVelocity = -bullet.speed; // 子彈y方向上的速度
+   bullet.width = 3;                    // 子彈的寬度
+   bullet.height = 3;                   // 子彈的高度
+   bullet.color = "#000";              // 子彈的顏色
+
+   // 檢查子彈是否還在畫布範圍內
+   bullet.inCanvas = function() {
+      return bullet.x >= 0 && bullet.x <= cxt.canvas.width &&
+         bullet.y >= 0 && bullet.y <= cxt.canvas.height;
+   };
+   // 繪製子彈，這裏簡單的繪製成一個矩形
+   bullet.draw = function() {
+      cxt.fillStyle = this.color;
+      cxt.fillRect(this.x, this.y, this.width, this.height);
+   };
+   // 更新子彈的屬性
+   bullet.update = function() {
+      bullet.x += bullet.xVelocity;  // 更新子彈位置
+      bullet.y += bullet.yVelocity;  // 更新子彈位置
+      // 檢查子彈是否處於活動狀態
+      bullet.active = bullet.active && bullet.inCanvas();
+   };
+   // 子彈撞敵人後爆炸，也就不再處於活動狀態了
+   bullet.explode = function() {
+      this.active = false;
+   };
+
+   return bullet;                      // 傳回建立的子彈
+}
+
+// 網頁載入完成
+window.onload=function() {
+   var canvas =document.getElementById("_2DCanvas");
+   if (canvas && canvas.getContext) {
+       cxt = canvas.getContext("2d");
+       // 註冊鍵盤事件
+       window.addEventListener('keydown', keyDownHandler, false);
+       window.addEventListener('keyup', keyUpHandler, false);
+   }
+}
+
+// 鍵盤按下事件處理常式，改變鍵盤鍵的值
+function keyDownHandler(evt)
+{
+   // 檢測evt.keyCode屬性值確定按鍵
+   if (evt.keyCode == 39){                          // 右箭頭鍵被按下
+      keydown['right'] = true;
+   } else if (evt.keyCode == 37){                 // 左箭頭鍵被按下
+      keydown['left'] = true;
+   } else if (evt.keyCode == 38){                 // 上箭頭鍵被按下
+      keydown['up'] = true;
+   } else if (evt.keyCode == 40){                 // 下箭頭鍵被按下
+      keydown['down'] = true;
+   } else if (evt.keyCode == 32){                 // 下箭頭鍵被按下
+      keydown['space'] = true;
+   }
+}
+
+// 鍵盤放開事件處理常式，改變鍵盤鍵的值
+function keyUpHandler(evt)
+{
+   // 檢測evt.keyCode屬性值確定按鍵
+   if (evt.keyCode == 39){                          // 右箭頭鍵放開
+      keydown['right'] = false;
+   } else if (evt.keyCode == 37){                 // 左箭頭鍵放開
+      keydown['left'] = false;
+   } else if (evt.keyCode == 38){                 // 上箭頭鍵放開
+      keydown['up'] = false;
+   } else if (evt.keyCode == 40){                 // 下箭頭鍵放開
+      keydown['down'] = false;
+   } else if (evt.keyCode == 32){                 // 下箭頭鍵放開
+      keydown['space'] = false;
+   }
+}
+
+// 下麵是重繪畫布，根據的是每個物件的新屬性
+function draw() {
+   cxt.clearRect(0, 0, cxt.canvas.width, cxt.canvas.height);
+   player.draw(); // 根據玩家的新屬性繪製玩家
+   
+   // 遍曆子彈群集，根據子彈的新屬性繪製每個子彈
+   playerBullets.forEach(function(bullet) {
+      bullet.draw();
+   });
+
+   // 遍曆敵人群集，根據敵人的新屬性繪製每個敵人
+   enemies.forEach(function(enemy) {
+      enemy.draw();
+   });
+}
+
+// 更新各圖像物件的屬性
+function update() 
+{
+   if(keydown.space) { // 如果按下空白鍵就發射子彈
+      player.shoot();   // 往子彈群集中添加一個子彈
+   }
+
+   if(keydown.left) {  // 如果按下左箭頭就向左移動
+      player.x -= 5;    // 更新屬性
+   }
+
+   if(keydown.right) { // 如果按下右箭頭就向右移動
+      player.x += 5;    // 更新屬性
+   }
+
+   // 修正位置，下面這個確保玩家圖像不會溢出畫布
+   player.x = player.x.clamp(0, cxt.canvas.width - player.width);
+   
+   // 遍曆子彈群集，更新子彈的屬性
+   playerBullets.forEach(function(bullet) {
+      bullet.update();
+   });
+
+   // 刪除子彈群集中那些active屬性為false的子彈
+   playerBullets = playerBullets.filter(function(bullet) {
+      return bullet.active;
+   });
+
+   // 遍曆敵人群集，更新敵人的屬性
+   enemies.forEach(function(enemy) {
+      enemy.update();
+   });
+
+   // 刪除敵人群集中那些active屬性為false的敵人
+   enemies = enemies.filter(function(enemy) {
+      return enemy.active;
+   });
+
+   // 檢測碰撞，為下一次更新做準備
+   handleCollisions();
+
+   // 往敵人群集中隨機的添加一個敵人
+   if(Math.random() < 0.1) {
+      enemies.push(Enemy());
+   }
+}
+
+// 每隔一段時間就更新一次畫布
+setInterval(function() {
+   update(); // 更新各圖像物件的屬性
+   draw();   // 然後根據新屬性重繪畫布
+}, 1000/FPS);
+
+// 定義玩家發射子彈方法
+player.shoot = function() {
+   var bulletPosition = this.midpoint(); // 獲取中心點座標
+   // 開新一個子彈，並加入到子彈群集，注意定義了子彈的速度和初始座標
+   playerBullets.push(Bullet({
+      speed: 5,
+      x: bulletPosition.x,
+      y: bulletPosition.y
+   }));
+};
+
+// 定義一個方法獲取玩家的中心點座標
+player.midpoint = function() {
+   return {
+      x: this.x + this.width/2,
+      y: this.y + this.height/2
+   };
+};
+
+// 檢測兩個矩形是否相交疊，如果相交疊也就是碰撞在一起了
+function collides(a, b)
+{
+   return a.x < b.x + b.width &&
+            a.x + a.width > b.x &&
+            a.y < b.y + b.height &&
+            a.y + a.height > b.y;
+}
+
+// 該函數用來檢測碰撞，包括子彈和敵人的碰撞、玩家和敵人的碰撞
+function handleCollisions()
+{
+   /**
+    * 子彈和敵人的碰撞
+       遍曆子彈群集和敵人群集，確定是否它們存在碰撞
+       如果存在碰撞，那麼就讓敵人和子彈的active屬性值為false
+       這樣，當下一次重繪畫布時就不會再繪製它們
+    */
+   playerBullets.forEach(function(bullet) {
+      enemies.forEach(function(enemy) {
+         if(collides(bullet, enemy)) {
+            enemy.active = false;
+            bullet.active = false;
+         }
+      });
+   });
+
+   /**
+    * 玩家和敵人的碰撞
+       遍曆敵人群集，確定是否它們存在碰撞
+       如果存在碰撞，那麼就讓敵人和玩家的active屬性值為false
+       這樣，當下一次重繪畫布時就不會再繪製它們
+    */
+   enemies.forEach(function(enemy) {
+      if(collides(enemy, player)) {
+         enemy.active = false;
+         player.active = false;
+      }
+   });
+}
+</script>
+</body>
+</html>
+

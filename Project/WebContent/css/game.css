@@ -1,0 +1,31 @@
+div.gbg{
+width:512;
+height:480 ;
+textAlign:center;
+}
+canvas{
+	border-style:solid;
+	border-width:5px;
+}
+#monsterImage{
+	-webkit-animation: move linear 1300ms infinite
+    -moz-animation:move  linear  1300ms infinite;
+    -ms-animation:move  linear  1300ms infinite;
+	animation:move  linear 1300ms infinite;
+}
+
+@keyframes move{
+	0%{
+	  from{right:monster.x;}
+	  to{right:(c.width-32px);}
+	}
+	50%{
+	  from{left:(c.width-32px);}
+	  to{left:32px;}
+	}
+	
+	100%{
+	  from{right:32px;}
+	  to{right:448;}
+	}
+}
