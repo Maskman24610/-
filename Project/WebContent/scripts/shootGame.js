@@ -5,7 +5,9 @@ var monsterShot=0,//儲存被擊中的怪物數
        monsters=[],            //定義一個集合來儲存怪物
        monsterCaught=0;
        monsterShoot=0;   //計算擊中的怪物數
-       
+  //宣告射擊及擊中音效物件
+       var hitsound=new Audio("images/Hit.wav");
+       var shootsound=new Audio("images/Shoot.wav");
 gameCanvas=$("#gameCanvas")[0];
 
 //背景圖片載入
@@ -135,8 +137,6 @@ function Bullet(bullet){
 		gameCtx.arc(bullet.x,bullet.y,7,1/4*Math.PI*2,3/4*Math.PI*2,true);
 		gameCtx.closePath();
 		gameCtx.fill();
-		var url=gameCanvas.toDataURL();
-		console.log(url);
 	};
 	//更新子彈屬性                     //要再修改
 	bullet.update=function(){
@@ -195,6 +195,22 @@ sCanvas=$("#scoreandtimeCanvas")[0];
 if(sCanvas&&sCanvas.getContext){
 	sCtx=sCanvas.getContext("2d");
 }
+
+//倒數計時器
+//var timecount={
+//		gameTime:60,
+//		draw:function(){
+//            sCtx.fillStyle="white"; 
+//            sCtx.font="24px Helvetica";
+//  		  sCtx.textAlign="center";
+//  		  sCtx.textBaseline="top";
+//          sCtx.fillText("00:"+timecount.gameTime,16,16);
+//		},
+//		update:function(){
+//			timecount.gameTime-=1;
+//		},
+//}
+
 var Score={
 		draw:function(){
 		  sCtx.fillStyle="blue";
@@ -229,6 +245,8 @@ var heroLife={
 		},
 }
 
+
+
 //網頁載入完成
 window.onload=function(){
 	//註冊事件
@@ -260,7 +278,7 @@ function draw(){
 	});
 	sCtx.clearRect(0,0,scoreandtimeCanvas.width,scoreandtimeCanvas.height);
 	Score.draw();
-	heroLife.draw();
+	//heroLife.draw();
 }
 
 //更新各個圖形物件的屬性
@@ -330,6 +348,7 @@ hero.shoot=function(){
 		x:bulletPosition.x,
 	   y:bulletPosition.y,
 	}));
+	shootsound.play();
 }	
 	//定義一個方法取得射擊點
 hero.shootpoint=function(){
@@ -356,8 +375,8 @@ function handleCollisions(){
 	 */
 	heroBullets.forEach(function(bullet){
 		monsters.forEach(function(monster){
-			//console.log(monster.width+","+monster.height+";"+bullet.width+","+bullet.height);
 			if(collides(bullet,monster)){
+				hitsound.play();
 				bullet.active=false;
 				monster.active=false;
 				++monsterShoot;
@@ -375,21 +394,38 @@ function handleCollisions(){
 			//code
 			monster.active=false;
 			++monsterCaught;
-			//--hero.life
-			/*if(hero.life==0){
-				heroReady=false;
-			}*/
+			--hero.life
+			console.log(hero.life);
+//			if(hero.life==0){
+//				gameOver();
+//			}
 		}
 	});
 }	
 
-
+var gameLoop;
 function game(){
 //每隔一段時間就更新一次畫布
-setInterval(function(){
+ gameLoop=setInterval(function(){
 	update();
 	draw();
 },1000/FPS);
+//setInterval(function(){
+//	timecount.update();
+//	timecount.draw();
+//},1000);
 };
+
+var playagainImage=new Image();
+playagainImage.src="images/playagainbtn_sm.png";
+//結束遊戲
+function gameOver(){
+	clearInterval(gameLoop);
+//	gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+//	sCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+//	gameCtx.fillStyle="purple";
+//	shadowBlur="15";
+//	gameCtx.drawImage(playagainImage,gameCanvas.width/2,gameCanvas.height/2);
+}
 
 game();
