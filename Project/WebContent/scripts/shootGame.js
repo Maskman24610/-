@@ -396,9 +396,9 @@ function handleCollisions(){
 			++monsterCaught;
 			--hero.life
 			console.log(hero.life);
-//			if(hero.life==0){
-//				gameOver();
-//			}
+			if(hero.life==0){
+				gameOver();
+			}
 		}
 	});
 }	
@@ -421,7 +421,7 @@ playagainImage.src="images/playagainbtn_sm.png";
 //結束遊戲
 function gameOver(){
 	clearInterval(gameLoop);
-//	gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+	gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
 //	sCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
 //	gameCtx.fillStyle="purple";
 //	shadowBlur="15";
